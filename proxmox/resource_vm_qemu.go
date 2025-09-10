@@ -725,6 +725,27 @@ func resourceVmQemuCreate(ctx context.Context, d *schema.ResourceData, meta inte
 			time.Sleep(time.Duration(d.Get("clone_wait").(int)) * time.Second)
 
 			log.Print("[DEBUG][QemuVmCreate] update VM after clone")
+			// Preserve cloud-init drives that exist from the template or are created by Proxmox
+			if config.Disks != nil {
+				// Check if cloud-init parameters are present
+				hasCloudInitParams := config.CloudInit != nil || 
+					d.Get("ipconfig0").(string) != "" || d.Get("ipconfig1").(string) != "" ||
+					d.Get("ipconfig2").(string) != "" || d.Get("ipconfig3").(string) != "" ||
+					d.Get("ipconfig4").(string) != "" || d.Get("ipconfig5").(string) != "" ||
+					d.Get("ipconfig6").(string) != "" || d.Get("ipconfig7").(string) != "" ||
+					d.Get("ipconfig8").(string) != "" || d.Get("ipconfig9").(string) != "" ||
+					d.Get("ipconfig10").(string) != "" || d.Get("ipconfig11").(string) != "" ||
+					d.Get("ipconfig12").(string) != "" || d.Get("ipconfig13").(string) != "" ||
+					d.Get("ipconfig14").(string) != "" || d.Get("ipconfig15").(string) != "" ||
+					d.Get("sshkeys").(string) != "" || d.Get("ciuser").(string) != "" ||
+					d.Get("cipassword").(string) != "" || d.Get("searchdomain").(string) != "" ||
+					d.Get("nameserver").(string) != "" || d.Get("cicustom").(string) != ""
+				
+				err = disk.PreserveCloudInitDrive(ctx, client, vmr, config.Disks, hasCloudInitParams)
+				if err != nil {
+					log.Printf("[WARN][QemuVmCreate] Failed to preserve cloud-init drive: %v", err)
+				}
+			}
 			rebootRequired, err = config.Update(ctx, false, vmr, client)
 			if err != nil {
 				// Set the id because when update config fail the vm is still created
